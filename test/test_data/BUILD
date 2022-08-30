@@ -70,3 +70,8 @@ proxy_wasm_cc_binary(
     name = "canary_check.wasm",
     srcs = ["canary_check.cc"],
 )
+
+filegroup(
+    name = "fs",
+    srcs = glob(["fs/**"])
+)

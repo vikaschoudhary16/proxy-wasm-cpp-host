@@ -52,6 +52,7 @@ cc_library(
         "src/bytecode_util.cc",
         "src/context.cc",
         "src/exports.cc",
+        "src/wasifs.cc",
         "src/pairs_util.cc",
         "src/shared_data.cc",
         "src/shared_data.h",
@@ -65,6 +66,7 @@ cc_library(
         "include/proxy-wasm/bytecode_util.h",
         "include/proxy-wasm/pairs_util.h",
         "include/proxy-wasm/signature_util.h",
+        "include/proxy-wasm/wasifs.h",
     ],
     linkopts = select({
         "//bazel:crypto_system": ["-lcrypto"],

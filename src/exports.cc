@@ -649,20 +649,78 @@ Word grpc_send(Word token, Word message_ptr, Word message_size, Word end_stream)
 // __wasi_errno_t path_open(__wasi_fd_t fd, __wasi_lookupflags_t dirflags, const char *path,
 // size_t path_len, __wasi_oflags_t oflags, __wasi_rights_t fs_rights_base, __wasi_rights_t
 // fs_rights_inheriting, __wasi_fdflags_t fdflags, __wasi_fd_t *retptr0)
-Word wasi_unstable_path_open(Word /*fd*/, Word /*dir_flags*/, Word /*path*/, Word /*path_len*/,
+Word wasi_unstable_path_open(Word fd, Word /*dir_flags*/, Word path_ptr, Word path_len,
                              Word /*oflags*/, int64_t /*fs_rights_base*/,
                              int64_t /*fg_rights_inheriting*/, Word /*fd_flags*/,
-                             Word /*nwritten_ptr*/) {
-  return 44; // __WASI_ERRNO_NOENT
+                             Word opened_fd_ptr) {
+  auto *context = contextOrEffectiveContext();
+
+  OpenedFile *opened;
+  int res = context->wasm()->fs().GetOpenedFile(fd, &opened);
+  if (res != 0) {
+    return res;
+  }
+
+  auto path = context->wasmVm()->getMemory(path_ptr, path_len);
+  if (!path) {
+    return 21; // __WASI_EFAULT
+  }
+
+  uint32_t new_fd;
+  res = context->wasm()->fs().OpenFile(fd, std::string(path.value()), &new_fd);
+  if (res != 0) {
+    return res;
+  }
+
+  if (!context->wasmVm()->setWord(opened_fd_ptr, new_fd)) {
+    return 21; // __WASI_EFAULT
+  }
+
+  return 0;
 }
 
 // __wasi_errno_t __wasi_fd_prestat_get(__wasi_fd_t fd, __wasi_prestat_t *retptr0)
-Word wasi_unstable_fd_prestat_get(Word /*fd*/, Word /*buf_ptr*/) {
-  return 8; // __WASI_ERRNO_BADF
+Word wasi_unstable_fd_prestat_get(Word fd, Word buf_ptr) {
+  auto *context = contextOrEffectiveContext();
+
+  OpenedFile *opened;
+  int res = context->wasm()->fs().GetOpenedFile(fd, &opened);
+  if (res != 0) {
+    return res;
+  }
+
+  // prestat byte layout is 8 bytes, beginning with an 8-bit tag and 3 pad bytes.
+  // The only valid tag is `prestat_dir`, which is tag zero. This simplifies the
+  // byte layout to 4 empty bytes followed by the encoded path length word.
+  if (!context->wasmVm()->setWord(buf_ptr, 0)) {
+    return 21; // __WASI_EFAULT
+  }
+  if (!context->wasmVm()->setWord(buf_ptr + 4, opened->vm_path.generic_u8string().length())) {
+    return 21; // __WASI_EFAULT
+  }
+
+  return 0;
 }
 
 // __wasi_errno_t __wasi_fd_prestat_dir_name(__wasi_fd_t fd, uint8_t * path, __wasi_size_t path_len)
-Word wasi_unstable_fd_prestat_dir_name(Word /*fd*/, Word /*path_ptr*/, Word /*path_len*/) {
+Word wasi_unstable_fd_prestat_dir_name(Word fd, Word path_ptr, Word path_len) {
+  auto *context = contextOrEffectiveContext();
+
+  OpenedFile *opened;
+  int res = context->wasm()->fs().GetOpenedFile(fd, &opened);
+  if (res != 0) {
+    return res;
+  }
+
+  const std::string &path = opened->vm_path.generic_u8string();
+  if (path.length() < path_len) {
+    return 37; // __WASI_ERRNO_ENAMETOOLONG
+  }
+
+  if (!context->wasmVm()->setMemory(path_ptr, path.length(), path.c_str())) {
+    return 21; // __WASI_EFAULT
+  }
+
   return 52; // __WASI_ERRNO_ENOSYS
 }
 

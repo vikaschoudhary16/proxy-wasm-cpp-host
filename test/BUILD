@@ -151,6 +151,20 @@ cc_test(
 )
 
 cc_test(
+    name = "wasifs_test",
+    srcs = ["wasifs_test.cc"],
+    linkstatic = 1,
+    data = [
+        "//test/test_data:fs",
+    ],
+    deps = [
+        "//:lib",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "wasm_vm_test",
     srcs = ["wasm_vm_test.cc"],
     data = [
