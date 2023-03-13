@@ -51,9 +51,8 @@ class WasmBase : public std::enable_shared_from_this<WasmBase> {
 public:
   WasmBase(std::unique_ptr<WasmVm> wasm_vm, std::string_view vm_id,
            std::string_view vm_configuration, std::string_view vm_key,
-           std::unordered_map<std::string, std::string> envs,
-           AllowedCapabilitiesMap allowed_capabilities,
-           FileSystemConfig filesystem);
+           std::unordered_map<std::string, std::string> envs, FileSystemConfig filesystem,
+           AllowedCapabilitiesMap allowed_capabilities);
   WasmBase(const std::shared_ptr<WasmHandleBase> &base_wasm_handle, const WasmVmFactory &factory);
   virtual ~WasmBase();
 
@@ -139,9 +138,7 @@ public:
 
   const std::unordered_map<std::string, std::string> &envs() { return envs_; }
 
-  WASIFileSystem &fs() {
-    return fs_;
-  }
+  WASIFileSystem &fs() { return fs_; }
 
   // Called to raise the flag which indicates that the context should stop iteration regardless of
   // returned filter status from Proxy-Wasm extensions. For example, we ignore
@@ -153,7 +150,7 @@ public:
   void doAfterVmCallActions() {
     // NB: this may be deleted by a delayed function unless prevented.
     if (!after_vm_call_actions_.empty()) {
-      auto self = shared_from_this();
+      auto const self = shared_from_this();
       while (!self->after_vm_call_actions_.empty()) {
         auto f = std::move(self->after_vm_call_actions_.front());
         self->after_vm_call_actions_.pop_front();

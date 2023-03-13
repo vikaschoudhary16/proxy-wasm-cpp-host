@@ -14,7 +14,8 @@
 // limitations under the License.
 
 #include <filesystem>
-
+#include <iostream>
+#include <cstring>
 #include "include/proxy-wasm/wasifs.h"
 
 namespace proxy_wasm {
@@ -25,9 +26,8 @@ WASIFileSystem::WASIFileSystem(const FileSystemConfig &config) {
   FSNode root;
 
   for (auto &host_file : config.host_files) {
-    const auto &vm_path = !host_file.vm_path.empty()
-                          ? std::filesystem::u8path(host_file.vm_path)
-                          : std::filesystem::u8path(host_file.host_path);
+    const auto &vm_path = !host_file.vm_path.empty() ? std::filesystem::u8path(host_file.vm_path)
+                                                     : std::filesystem::u8path(host_file.host_path);
 
     FSNode *node = &root;
     auto path_entry = vm_path.begin();
@@ -59,13 +59,13 @@ int WASIFileSystem::GetOpenedFile(uint32_t fd, OpenedFile **openedOut) {
   return 0;
 }
 
-int WASIFileSystem::OpenFile(uint32_t fd, std::string path_str, uint32_t *fdOut) {
+int WASIFileSystem::OpenFile(uint32_t fd, std::string path_sstr, uint32_t *fdOut) {
   auto parentItr = opened_files_.find(fd);
   if (parentItr == opened_files_.end()) {
     return errnoToWASI(EBADF);
   }
 
-  const std::filesystem::path &path = std::filesystem::u8path(path_str).lexically_normal();
+  const std::filesystem::path &path = std::filesystem::u8path(path_sstr).lexically_normal();
 
   if (path.empty()) {
     // path is required
@@ -97,8 +97,7 @@ int WASIFileSystem::OpenFile(uint32_t fd, std::string path_str, uint32_t *fdOut)
     node = &nodeItr->second;
     host_path = node->host_path;
   }
-
-  FILE *file = fopen(host_path.c_str(), "r");
+  FILE *file = fopen(host_path.c_str(), "a+");
   if (file == NULL) {
     return errnoToWASI(errno);
   }
@@ -282,4 +281,4 @@ int errnoToWASI(int eno) {
   }
 }
 
-}
+} // namespace proxy_wasm

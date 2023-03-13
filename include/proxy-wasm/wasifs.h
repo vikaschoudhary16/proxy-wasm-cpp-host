@@ -17,6 +17,7 @@
 
 #include <cstdio>
 #include <filesystem>
+#include <map>
 #include <unordered_map>
 #include <vector>
 
@@ -32,11 +33,12 @@ struct FileSystemConfig {
 
 struct FSNode {
   std::filesystem::path host_path;
-  std::unordered_map<std::string, FSNode> entries;
+  std::map<std::string, FSNode> entries;
 };
 
 struct OpenedFile {
-  OpenedFile(const std::filesystem::path vm_path, const FSNode &node, FILE *file): vm_path(vm_path), node(node), file(file) {}
+  OpenedFile(const std::filesystem::path vm_path, const FSNode &node, FILE *file)
+      : vm_path(vm_path), node(node), file(file) {}
 
   const std::filesystem::path vm_path;
   const FSNode &node;
@@ -59,4 +61,5 @@ private:
   uint32_t last_fd_;
 };
 
-}
+int errnoToWASI(int eno);
+} // namespace proxy_wasm

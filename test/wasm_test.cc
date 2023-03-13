@@ -45,7 +45,7 @@ TEST_P(TestVm, GetOrCreateThreadLocalWasmFailCallbacks) {
       [this, vm_id, vm_config](std::string_view vm_key) -> std::shared_ptr<WasmHandleBase> {
     auto base_wasm = std::make_shared<WasmBase>(newVm(), vm_id, vm_config, vm_key,
                                                 std::unordered_map<std::string, std::string>{},
-                                                AllowedCapabilitiesMap{});
+                                                FileSystemConfig{}, AllowedCapabilitiesMap{});
     return std::make_shared<WasmHandleBase>(base_wasm);
   };
 

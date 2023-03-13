@@ -17,9 +17,13 @@
 #include "include/proxy-wasm/pairs_util.h"
 #include "include/proxy-wasm/wasm.h"
 
+#include <cstdint>
 #include <openssl/rand.h>
 
 #include <utility>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 
 namespace proxy_wasm {
 
@@ -707,8 +711,11 @@ Word wasi_unstable_fd_prestat_dir_name(Word fd, Word path_ptr, Word path_len) {
   auto *context = contextOrEffectiveContext();
 
   OpenedFile *opened;
+  int e = 0;
   int res = context->wasm()->fs().GetOpenedFile(fd, &opened);
   if (res != 0) {
+    e = errno;
+    auto error = strerror(errno);
     return res;
   }
 
@@ -721,26 +728,13 @@ Word wasi_unstable_fd_prestat_dir_name(Word fd, Word path_ptr, Word path_len) {
     return 21; // __WASI_EFAULT
   }
 
-  return 52; // __WASI_ERRNO_ENOSYS
+  return 0;
 }
 
 // Implementation of writev-like() syscall that redirects stdout/stderr to Envoy
 // logs.
 Word writevImpl(Word fd, Word iovs, Word iovs_len, Word *nwritten_ptr) {
   auto *context = contextOrEffectiveContext();
-
-  // Read syscall args.
-  uint64_t log_level;
-  switch (fd) {
-  case 1 /* stdout */:
-    log_level = 2; // LogLevel::info
-    break;
-  case 2 /* stderr */:
-    log_level = 4; // LogLevel::error
-    break;
-  default:
-    return 8; // __WASI_EBADF
-  }
 
   std::string s;
   for (size_t i = 0; i < iovs_len; i++) {
@@ -766,8 +760,39 @@ Word writevImpl(Word fd, Word iovs, Word iovs_len, Word *nwritten_ptr) {
     if (s[written - 1] == '\n') {
       s.erase(written - 1);
     }
-    if (context->log(log_level, s) != WasmResult::Ok) {
-      return 8; // __WASI_EBADF
+    // Read syscall args.
+    uint64_t log_level;
+    switch (fd) {
+    case 1 /* stdout */:
+      log_level = 2; // LogLevel::info
+      if (context->log(log_level, s) != WasmResult::Ok) {
+        return 8; // __WASI_EBADF
+      }
+      break;
+    case 2 /* stderr */:
+      log_level = 4; // LogLevel::error
+      if (context->log(log_level, s) != WasmResult::Ok) {
+        return 8; // __WASI_EBADF
+      }
+      break;
+    default:
+      // return 8; // __WASI_EBADF
+      OpenedFile *fp;
+      int ret = context->wasm()->fs().GetOpenedFile(uint32_t(fd), &fp);
+      if (ret != 0) {
+        return ret;
+      }
+      struct stat buffer;
+      int status;
+      int e = 5872;
+      int r = fcntl(fd, F_GETFL);
+      int rc = std::fputs(s.c_str(), fp->file);
+      if (rc == EOF) {
+        e = errno;
+        auto error = strerror(errno);
+        status = fstat(fd, &buffer);
+        return 9;
+      }
     }
   }
   *nwritten_ptr = Word(written);
@@ -816,16 +841,18 @@ Word wasi_unstable_fd_close(Word /*fd*/) {
 // __wasi_errno_t __wasi_fd_fdstat_get(__wasi_fd_t fd, __wasi_fdstat_t *stat)
 Word wasi_unstable_fd_fdstat_get(Word fd, Word statOut) {
   // We will only support this interface on stdout and stderr
-  if (fd != 1 && fd != 2) {
-    return 8; // __WASI_EBADF;
-  }
+  // if (fd != 1 && fd != 2) {
+  //   // context->wasm()->fs().OpenFile
+  //   return 8; // __WASI_EBADF;
+  // }
 
   // The last word points to a 24-byte structure, which we
   // are mostly going to zero out.
   uint64_t wasi_fdstat[3];
   wasi_fdstat[0] = 0;
+  *((std::int8_t *)wasi_fdstat) = UINT8_C(3); // __WASI_FILETYPE_DIRECTORY
   wasi_fdstat[1] = 64; // This sets "fs_rights_base" to __WASI_RIGHTS_FD_WRITE
-  wasi_fdstat[2] = 0;
+  wasi_fdstat[2] = 64;
 
   auto *context = contextOrEffectiveContext();
   context->wasmVm()->setMemory(statOut, 3 * sizeof(uint64_t), &wasi_fdstat);

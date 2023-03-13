@@ -46,9 +46,9 @@ wasm::Engine *engine() {
   static wasm::own<wasm::Engine> engine;
 
   std::call_once(init, []() {
-    ::v8::internal::FLAG_liftoff = false;
-    ::v8::internal::FLAG_wasm_max_mem_pages =
-        PROXY_WASM_HOST_MAX_WASM_MEMORY_SIZE_BYTES / PROXY_WASM_HOST_WASM_MEMORY_PAGE_SIZE_BYTES;
+    //::v8::internal::FLAG_liftoff = false;
+    // ::v8::internal::FLAG_wasm_max_mem_pages =
+    //     PROXY_WASM_HOST_MAX_WASM_MEMORY_SIZE_BYTES / PROXY_WASM_HOST_WASM_MEMORY_PAGE_SIZE_BYTES;
     ::v8::V8::EnableWebAssemblyTrapHandler(true);
     engine = wasm::Engine::make();
   });
@@ -440,6 +440,9 @@ bool V8::link(std::string_view /*debug_name*/) {
 
     case wasm::EXTERN_FUNC: {
       assert(export_item->func() != nullptr);
+      if (log) {
+        integration()->trace("[vikas host---vm] module function: " + std::string(name));
+      }
       module_functions_.insert_or_assign(std::string(name), export_item->func()->copy());
     } break;
 
