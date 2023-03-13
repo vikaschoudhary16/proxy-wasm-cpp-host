@@ -15,6 +15,9 @@
 #include "include/proxy-wasm/wasifs.h"
 
 #include "gtest/gtest.h"
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 
 namespace proxy_wasm {
 
@@ -38,7 +41,7 @@ TEST(WASIFileSystem, Empty) {
   EXPECT_EQ(8, res);
 
   res = fs.OpenFile(3, "/animals/mammals/bears.txt", &fd);
-  EXPECT_EQ(44, res);
+  EXPECT_EQ(errnoToWASI(ENOENT), res);
 
   res = fs.OpenFile(3, "", &fd);
   EXPECT_EQ(28, res);
@@ -56,15 +59,9 @@ TEST(WASIFileSystem, Empty) {
 TEST(WASIFileSystem, OnlyFiles) {
   FileSystemConfig config;
   config.host_files.push_back(
-      {
-          "test/test_data/fs/animals/mammals/apes.txt",
-          "/animals/mammals/apes.txt"
-      });
+      {"test/test_data/fs/animals/mammals/apes.txt", "/animals/mammals/apes.txt"});
   config.host_files.push_back(
-      {
-          "test/test_data/fs/animals/mammals/bears.txt",
-          "/animals/mammals/bears.txt"
-      });
+      {"test/test_data/fs/animals/mammals/bears.txt", "/animals/mammals/bears.txt"});
   WASIFileSystem fs(config);
 
   OpenedFile *opened;
@@ -97,11 +94,7 @@ TEST(WASIFileSystem, OnlyFiles) {
 
 TEST(WASIFileSystem, OneDir) {
   FileSystemConfig config;
-  config.host_files.push_back(
-      {
-          "test/test_data/fs/animals",
-          "/animals"
-      });
+  config.host_files.push_back({"test/test_data/fs/animals", "/animals"});
   WASIFileSystem fs(config);
 
   OpenedFile *opened;
@@ -112,6 +105,21 @@ TEST(WASIFileSystem, OneDir) {
   uint32_t fd;
   res = fs.OpenFile(3, "animals/mammals/apes.txt", &fd);
   EXPECT_EQ(0, res);
+
+  std::string soo = "tia 2 also";
+  OpenedFile *fp;
+  fs.GetOpenedFile(fd, &fp);
+  // struct stat buffer;
+  // int status;
+  // int e = 5872;
+  // int r = fcntl(fd, F_GETFL);
+  // e = errno;
+  auto error = strerror(errno);
+  int rc = std::fputs(soo.c_str(), fp->file);
+  // e = errno;
+  error = strerror(errno);
+  // status = fstat(fd, &buffer);
+  // EXPECT_EQ(0, rc);
 
   res = fs.OpenFile(3, "animals/mammals/bears.txt", &fd);
   EXPECT_EQ(0, res);
@@ -128,16 +136,8 @@ TEST(WASIFileSystem, OneDir) {
 
 TEST(WASIFileSystem, TwoDirs) {
   FileSystemConfig config;
-  config.host_files.push_back(
-      {
-          "test/test_data/fs/animals/birds",
-          "/animals/birds"
-      });
-  config.host_files.push_back(
-      {
-          "test/test_data/fs/animals/mammals",
-          "/animals/mammals"
-      });
+  config.host_files.push_back({"test/test_data/fs/animals/birds", "/animals/birds"});
+  config.host_files.push_back({"test/test_data/fs/animals/mammals", "/animals/mammals"});
   WASIFileSystem fs(config);
 
   OpenedFile *opened;
@@ -164,16 +164,8 @@ TEST(WASIFileSystem, TwoDirs) {
 
 TEST(WASIFileSystem, OverlappingDirs) {
   FileSystemConfig config;
-  config.host_files.push_back(
-      {
-          "test/test_data/fs/animals",
-          "/animals"
-      });
-  config.host_files.push_back(
-      {
-          "test/test_data/fs/animals/mammals",
-          "/animals/mammals"
-      });
+  config.host_files.push_back({"test/test_data/fs/animals", "/animals"});
+  config.host_files.push_back({"test/test_data/fs/animals/mammals", "/animals/mammals"});
   WASIFileSystem fs(config);
 
   OpenedFile *opened;
@@ -198,4 +190,4 @@ TEST(WASIFileSystem, OverlappingDirs) {
   EXPECT_EQ(44, res);
 }
 
-}
+} // namespace proxy_wasm

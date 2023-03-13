@@ -39,6 +39,7 @@ cc_library(
         "include/proxy-wasm/context_interface.h",
         "include/proxy-wasm/exports.h",
         "include/proxy-wasm/vm_id_handle.h",
+        "include/proxy-wasm/wasifs.h",
         "include/proxy-wasm/wasm.h",
     ],
     deps = [
